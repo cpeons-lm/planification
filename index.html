@@ -135,6 +135,7 @@ table.doc td.ti{font-weight:700;width:12%}
 .empty-state h2{display:block;font-size:18px}
 dialog{border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);width:min(560px,92vw)}
 dialog textarea{width:100%;height:160px;font:12px monospace;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px}
+dialog.dlg-fb{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;max-height:90vh;overflow:auto;box-shadow:0 0 0 100vmax rgba(0,0,0,.4)}
 .confirm{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
 @media (max-width:700px){header.top{position:static}.hd h1{min-width:0;flex:1 1 60%}.tabs{order:3;width:100%}.tabs .btn{flex:1;padding:7px 6px}#bk{padding:6px 10px;font-size:13px}.side{top:auto}}
 /* sheet-local table colours (on screen too: the sheet is white paper) */
@@ -251,7 +252,7 @@ dialog textarea{width:100%;height:160px;font:12px monospace;background:var(--bg)
  <div class="row" style="margin-top:12px">
   <button class="btn pr" id="exp">Télécharger la sauvegarde</button>
   <label class="btn" for="imp" tabindex="0">Ouvrir une sauvegarde…</label>
-  <input type="file" id="imp" accept=".json,application/json" hidden>
+  <input type="file" id="imp" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
  </div>
  <details style="margin-top:6px"><summary class="note" style="cursor:pointer">Copier-coller la sauvegarde (si le téléchargement ne fonctionne pas)</summary>
   <textarea id="ta" aria-label="Texte de sauvegarde"></textarea>
@@ -281,7 +282,9 @@ const newClass=()=>({name:"",teacher:"",school:"",year:"",niv:"S1",lg:"en",perio
 const blank=()=>({v:1,classes:[],cur:0,per:0,seq:0,view:"home",onlyNew:true,filter:"all",q:"",open:{sub:true},expHash:"",expAt:"",nl:"en"});
 /* APPV changes at every published update. Before a new version touches the data, the previous data is copied aside
    (KEY-avant-<old version>), and data this version cannot read is never overwritten. */
-const APPV="2026-11-09";
+const APPV="2026-11-16";
+/* ask the browser not to clear our data on its own (Chrome, Edge, Firefox); Safari ignores it, hence the advice in the help */
+const persist=()=>{try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persisted().then(p=>{if(!p)navigator.storage.persist()}).catch(()=>{})}catch(e){}};
 const valid=o=>o&&Array.isArray(o.classes)&&o.classes.every(c=>c&&Array.isArray(c.periods)&&c.periods.length===NP);
 let S=blank(),LOCKED=false;
 try{const r=localStorage.getItem(KEY);
@@ -293,6 +296,7 @@ try{const r=localStorage.getItem(KEY);
   }else LOCKED=true;
  }}catch(e){}
 S.appv=APPV;
+if(S.classes.length)persist();
 const copies=()=>{try{return Object.keys(localStorage).filter(k=>k.startsWith(KEY+"-avant-")).sort().reverse()}catch(e){return[]}};
 const dataHash=()=>JSON.stringify(S.classes);
 const dirty=()=>S.classes.some(c=>c.periods.some(p=>p.seqs.some(s=>s.items.length||s.title||s.task)))&&dataHash()!==S.expHash;
@@ -529,6 +533,7 @@ function renderAide(){
   <p><b>Retrouver ses plannings</b> (autre ordinateur, après un nettoyage…) : <span class="key">Sauvegarde</span> → <span class="key">Ouvrir une sauvegarde…</span> → choisissez votre fichier. Si l'outil contient déjà des classes, il vous demande :</p>
   <ul><li><b>Ajouter à mes classes</b> : les classes du fichier s'ajoutent à celles qui sont déjà là ;</li>
    <li><b>Remplacer toutes mes classes</b> : tout ce qui est dans l'outil est effacé et remplacé par le fichier.</li></ul>
+  <div class="warn" style="margin:10px 0"><b>Sur iPad, iPhone ou Mac avec Safari :</b> Safari peut effacer les données d'un site que vous n'avez pas ouvert depuis 7 jours. Ajoutez l'outil à votre écran d'accueil (bouton Partager, puis « Sur l'écran d'accueil ») et ouvrez-le toujours depuis cette icône : les données y sont conservées. Et téléchargez une sauvegarde après chaque séance de travail.</div>
   <p><b>Partager avec un collègue</b> : envoyez-lui votre fichier de sauvegarde. Il l'ouvre avec <span class="key">Ajouter à mes classes</span> pour ne pas perdre les siennes.</p>
   <p class="note">Si le téléchargement ne fonctionne pas, ouvrez « Copier-coller la sauvegarde » dans la même fenêtre : copiez le texte et collez-le dans un document que vous gardez. Pour restaurer, collez-le au même endroit et cliquez sur « Restaurer ce texte ».</p>
  </div>
@@ -553,7 +558,8 @@ function renderAide(){
   <p>L'onglet <span class="key">Document</span> présente la planification comme le tableau habituel : une page par période, puis le récapitulatif annuel. Deux boutons : <span class="key">toute l'année</span> imprime tout, <span class="key">récapitulatif annuel seul</span> n'imprime que le tableau de l'aperçu (aussi disponible dans l'onglet Aperçu annuel). Choisissez l'orientation <b>paysage</b> si votre navigateur ne la propose pas d'office. Pour un PDF, choisissez l'imprimante « Enregistrer au format PDF ».</p>
  </div>
  <div class="card" id="a-faq"><h2>Questions fréquentes</h2>
-  <p><b>Ça fonctionne sur tablette ou téléphone ?</b> Oui, mais les données de la tablette sont séparées de celles de l'ordinateur. Passez de l'un à l'autre avec un fichier de sauvegarde.</p>
+  <p><b>Ça fonctionne sur tablette ou téléphone ?</b> Oui, mais les données de la tablette sont séparées de celles de l'ordinateur. Passez de l'un à l'autre avec un fichier de sauvegarde. Sur iPad et iPhone, ajoutez l'outil à l'écran d'accueil (voir la partie Sauvegarde).</p>
+  <p><b>Fenêtre de navigation privée ?</b> À éviter : tout est effacé dès que vous fermez la fenêtre.</p>
   <p><b>Je n'ai pas Internet à l'école.</b> Une fois la page ouverte, l'outil fonctionne sans connexion.</p>
   <p><b>Une question ?</b> Contactez les conseillères au soutien et à l'accompagnement en langues modernes du CPEONS, Leila Romdhan et Aurèle Timsonet : <a href="mailto:leila.romdhan@cpeons.be">leila.romdhan@cpeons.be</a> et <a href="mailto:aurele.timsonet@cpeons.be">aurele.timsonet@cpeons.be</a>.</p>
  </div>`;
@@ -587,9 +593,9 @@ document.addEventListener("click",e=>{
  else if(t.dataset.rm){const a=c.periods[S.per].seqs[S.seq].items,i=a.indexOf(t.dataset.rm);if(i>=0)a.splice(i,1);save();renderList();renderSum();return}
  else{
   const a=t.dataset.act;
-  if(a==="create"){const c=newClass();c.name=($("#nc-name").value||"").trim();c.lg=S.nl;c.niv=$("#nc-niv").value;S.classes.push(c);S.cur=S.classes.length-1;S.per=0;S.seq=0;S.view="plan";save();view("plan");return}
+  if(a==="create"){const c=newClass();c.name=($("#nc-name").value||"").trim();c.lg=S.nl;c.niv=$("#nc-niv").value;S.classes.push(c);S.cur=S.classes.length-1;S.per=0;S.seq=0;S.view="plan";save();persist();view("plan");return}
   else if(a==="gonew"){view("home");setTimeout(()=>{const i=$("#nc-name");if(i){i.scrollIntoView({block:"center"});i.focus()}},0);return}
-  else if(a==="demo"){S.classes.push(demo());S.cur=S.classes.length-1;S.per=0;S.seq=0;save();view("plan");return}
+  else if(a==="demo"){S.classes.push(demo());S.cur=S.classes.length-1;S.per=0;S.seq=0;save();persist();view("plan");return}
   else if(a==="open"||a==="openap"){S.cur=+t.dataset.ci;S.per=0;S.seq=0;save();view(a==="open"?"plan":"apercu");return}
   else if(a==="nl"){S.nl=t.dataset.lg;save();document.querySelectorAll(".lgpick button").forEach(b=>b.classList.toggle("on",b.dataset.lg===S.nl));return}
   else if(a==="backup"){$("#bk").click();return}
@@ -656,6 +662,8 @@ $("#bk").onclick=()=>{$("#ta").value=payload();msg("");$("#dchoice").innerHTML="
  const cs=copies();
  $("#dprev").innerHTML=cs.length?`<details style="margin-top:6px"><summary class="note" style="cursor:pointer">Récupérer mes plannings d'avant une mise à jour de l'outil</summary><p class="note">L'outil garde une copie de vos plannings avant chaque mise à jour. À n'utiliser qu'en cas de problème.</p><div class="row" style="margin-top:6px">${cs.map(k=>`<button class="btn sm" data-act="prev" data-k="${esc(k)}">Copie d'avant la mise à jour (${esc(k.split("-avant-")[1])})</button>`).join("")}</div></details>`:"";
  $("#dlg").showModal()};
+/* older Safari (before iPadOS 15.4) has no <dialog>: minimal fallback */
+(()=>{const d=$("#dlg");if(typeof d.showModal!=="function"){d.showModal=()=>{d.setAttribute("open","");d.classList.add("dlg-fb")};d.close=()=>{d.removeAttribute("open");d.classList.remove("dlg-fb");d.dispatchEvent(new Event("close"))}}})();
 $("#cl").onclick=()=>$("#dlg").close();
 $("#dlg").addEventListener("close",()=>{if(S.view==="home")render();else markDirty()});
 $("#exp").onclick=()=>{
