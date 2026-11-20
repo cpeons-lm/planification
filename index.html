@@ -282,7 +282,7 @@ const newClass=()=>({name:"",teacher:"",school:"",year:"",niv:"S1",lg:"en",perio
 const blank=()=>({v:1,classes:[],cur:0,per:0,seq:0,view:"home",onlyNew:true,filter:"all",q:"",open:{sub:true},expHash:"",expAt:"",nl:"en"});
 /* APPV changes at every published update. Before a new version touches the data, the previous data is copied aside
    (KEY-avant-<old version>), and data this version cannot read is never overwritten. */
-const APPV="2026-11-16";
+const APPV="2026-11-20";
 /* ask the browser not to clear our data on its own (Chrome, Edge, Firefox); Safari ignores it, hence the advice in the help */
 const persist=()=>{try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persisted().then(p=>{if(!p)navigator.storage.persist()}).catch(()=>{})}catch(e){}};
 const valid=o=>o&&Array.isArray(o.classes)&&o.classes.every(c=>c&&Array.isArray(c.periods)&&c.periods.length===NP);
@@ -349,7 +349,7 @@ function renderPlan(){
  if(S.seq>=p.seqs.length)S.seq=p.seqs.length-1;
  const s=p.seqs[S.seq],locked=c.periods.some(p=>p.seqs.some(s=>s.items.length));
  let h=classBar();
- h+=`<div class="card"><h2>Classe<span><button class="btn ghost sm" data-act="delclass">Supprimer cette classe</button></span></h2><div class="grid">
+ h+=`<div class="card"><h2>Classe<span><button class="btn sm" data-act="dup" data-ci="${S.cur}">Dupliquer cette classe</button> <button class="btn ghost sm" data-act="delclass">Supprimer cette classe</button></span></h2><div class="grid">
  <label class="f">Classe(s)<input id="f-name" data-f="name" value="${esc(c.name)}" placeholder="ex. 1re A"></label>
  <label class="f">Professeur(s)<input id="f-teacher" data-f="teacher" value="${esc(c.teacher)}"></label>
  <label class="f">École<input id="f-school" data-f="school" value="${esc(c.school)}"></label>
@@ -357,7 +357,7 @@ function renderPlan(){
  <label class="f">Langue<select id="f-lg" data-f="lg" ${locked?"disabled":""}>${Object.entries(LANGS).map(([k,v])=>`<option value="${k}" ${c.lg==k?"selected":""}>${v}</option>`).join("")}</select></label>
  <label class="f">Niveau<select id="f-niv" data-f="niv" ${locked?"disabled":""}>${Object.entries(NIV).map(([k,v])=>`<option value="${k}" ${c.niv==k?"selected":""} ${DATA[k]?"":"disabled"}>${v}${DATA[k]?"":" – contenus à venir"}</option>`).join("")}</select></label>
  </div>${locked?'<p class="note">La langue et le niveau sont verrouillés dès qu\'un élément est planifié. Pour une autre langue ou un autre niveau, créez une nouvelle classe.</p>':""}
- <div id="delc"></div></div>`;
+ <p class="note" id="dupmsg" hidden role="status">Classe dupliquée : renommez-la ci-dessus. Les deux classes sont ensuite indépendantes.</p><div id="delc"></div></div>`;
  if(!R){el.innerHTML=h+'<div class="warn">Les contenus de ce niveau ne sont pas encore disponibles.</div>';return}
  h+='<div class="row"><span class="lbl">Périodes</span>'+c.periods.map((x,i)=>`<button class="chip ${i==S.per?"on":""} ${x.seqs.some(s=>s.items.length)?"has":""}" data-p="${i}">Période ${i+1}</button>`).join("")+'</div>';
  h+=`<div class="card"><div class="grid" style="align-items:end">
@@ -500,7 +500,7 @@ function renderHome(){
   h+=`<div class="card ccard t-${c.lg}"><span class="pill">${LANGS[c.lg]} · ${c.niv}</span>
   <h3>${esc(cname(c,i))}</h3><div class="meta">${[c.school,c.year].filter(Boolean).map(esc).join(" · ")||"&nbsp;"}</div>
   <div><div class="meta">${nseq(c)} séquence(s) · ${d} / ${n} éléments nouveaux planifiés</div><div class="bar"><i style="width:${pc}%"></i></div></div>
-  <div class="acts" id="acts-${i}"><button class="btn pr sm" data-act="open" data-ci="${i}">Planifier</button><button class="btn sm" data-act="openap" data-ci="${i}">Aperçu annuel</button><button class="btn ghost sm" data-act="delhome" data-ci="${i}" style="margin-left:auto" aria-label="Supprimer la classe ${esc(cname(c,i))}">Supprimer</button></div></div>`;
+  <div class="acts" id="acts-${i}"><button class="btn pr sm" data-act="open" data-ci="${i}">Planifier</button><button class="btn sm" data-act="openap" data-ci="${i}">Aperçu annuel</button><button class="btn sm" data-act="dup" data-ci="${i}" aria-label="Dupliquer la classe ${esc(cname(c,i))}">Dupliquer</button><button class="btn ghost sm" data-act="delhome" data-ci="${i}" style="margin-left:auto" aria-label="Supprimer la classe ${esc(cname(c,i))}">Supprimer</button></div></div>`;
  });
  h+=`<div class="card ccard newc t-${S.nl}" id="newc"><span class="pill">Nouvelle classe</span>
   <label class="f">Nom de la classe<input id="nc-name" placeholder="ex. 1re A"></label>
@@ -538,7 +538,8 @@ function renderAide(){
   <p class="note">Si le téléchargement ne fonctionne pas, ouvrez « Copier-coller la sauvegarde » dans la même fenêtre : copiez le texte et collez-le dans un document que vous gardez. Pour restaurer, collez-le au même endroit et cliquez sur « Restaurer ce texte ».</p>
  </div>
  <div class="card" id="a-plan"><h2>Planifier une séquence</h2>
-  <ul><li>Choisissez la <b>classe</b>, la <b>période</b> (1 à 5) puis la <b>séquence</b>. Le bouton <span class="key">+ Séquence</span> en ajoute une (6 maximum par période).</li>
+  <ul><li>Vous avez plusieurs classes du même niveau ? Planifiez-en une, puis cliquez sur <span class="key">Dupliquer</span> (sur sa carte à l\'accueil ou dans sa fiche) : la copie reprend toute la planification, renommez-la et ajustez-la au rythme de cette classe. Les deux classes restent ensuite indépendantes.</li>
+   <li>Choisissez la <b>classe</b>, la <b>période</b> (1 à 5) puis la <b>séquence</b>. Le bouton <span class="key">+ Séquence</span> en ajoute une (6 maximum par période).</li>
    <li>Donnez un titre et décrivez la tâche finale, puis <b>cochez</b> les contenus : champs et sous-champs thématiques, grammaire, attendus, compétences. Vous pouvez en cocher autant que nécessaire.</li>
    <li>Cocher un sous-champ coche automatiquement son champ thématique.</li>
    <li>L'étiquette <span class="badge" style="margin:0">consolider</span> signale un contenu des années précédentes, à réactiver : le primaire (P3 à P6) pour une classe de 1re, la 1re secondaire pour une classe de 2e.</li>
@@ -600,6 +601,10 @@ document.addEventListener("click",e=>{
   else if(a==="nl"){S.nl=t.dataset.lg;save();document.querySelectorAll(".lgpick button").forEach(b=>b.classList.toggle("on",b.dataset.lg===S.nl));return}
   else if(a==="backup"){$("#bk").click();return}
   else if(a==="goaide"){view("aide");setTimeout(()=>{const e=$("#a-sauv");if(e)e.scrollIntoView({block:"start"})},0);return}
+  else if(a==="dup"){const i=+t.dataset.ci,src=S.classes[i];if(!src)return;
+   const c=JSON.parse(JSON.stringify(src));c.name=(src.name||cname(src,i))+" (copie)";
+   S.classes.splice(i+1,0,c);S.cur=i+1;S.per=0;S.seq=0;S.view="plan";save();view("plan");
+   setTimeout(()=>{const n=$("#f-name");if(n){n.focus();n.select()}const m=$("#dupmsg");if(m)m.hidden=false},0);return}
   else if(a==="delhome"){const i=+t.dataset.ci;$("#acts-"+i).outerHTML=`<div class="warn confirm" style="margin-top:auto">Supprimer « ${esc(cname(S.classes[i],i))} » et tout son planning ? Pensez à télécharger une sauvegarde avant.<div class="row" style="margin:6px 0 0"><button class="btn sm danger" data-act="delhome-ok" data-ci="${i}">Supprimer définitivement</button><button class="btn sm" data-act="cancelhome">Annuler</button></div></div>`;return}
   else if(a==="delhome-ok"){S.classes.splice(+t.dataset.ci,1);S.cur=0;S.per=0;S.seq=0;save();render();return}
   else if(a==="cancelhome"){render();return}
